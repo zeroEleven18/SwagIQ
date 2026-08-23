@@ -6,6 +6,8 @@ presets:
       motion_score_threshold: 60000
       cooldown_frames: 45
       merge_window_sec: 1.2
+      confirm_hits: 2
+      confirm_window_frames: 6
     pipeline:
       sample_every_n_frames: 30
 
@@ -16,6 +18,8 @@ presets:
       motion_score_threshold: 35000
       cooldown_frames: 25
       merge_window_sec: 0.8
+      confirm_hits: 1
+      confirm_window_frames: 4
     pipeline:
       sample_every_n_frames: 20
 

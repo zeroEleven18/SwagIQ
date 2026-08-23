@@ -1,4 +1,5 @@
 import cv2
+from collections import deque
 
 def _confidence_from_score(score: float) -> str:
     if score >= 90000:
@@ -16,7 +17,10 @@ def _merge_events_by_time(events, merge_window_sec=1.0):
     current["merged_count"] = 1
 
     for e in events[1:]:
-        dt = (e["time_sec"] - current["time_sec"]) if (e.get("time_sec") is not None and current.get("time_sec") is not None) else 999
+        t1 = current.get("time_sec")
+        t2 = e.get("time_sec")
+        dt = (t2 - t1) if (t1 is not None and t2 is not None) else 999
+
         if dt <= merge_window_sec:
             current["merged_count"] += 1
             if e["motion_score"] > current["motion_score"]:
@@ -39,6 +43,8 @@ def detect_shot_like_events(
     merge_window_sec: float = 1.0,
     threshold_binary: int = 28,
     motion_score_threshold: float = 45000,
+    confirm_hits: int = 2,          # nuovo: hit minime per confermare evento
+    confirm_window_frames: int = 6  # nuovo: finestra frame per le hit
 ) -> dict:
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
@@ -48,6 +54,9 @@ def detect_shot_like_events(
     frame_idx = 0
     last_event = -10**9
     events = []
+
+    # buffer hit recenti per conferma temporale
+    hit_frames = deque()
 
     while True:
         ok, frame = cap.read()
@@ -69,14 +78,27 @@ def detect_shot_like_events(
                 if area >= min_area:
                     motion_score += area
 
-            if motion_score > motion_score_threshold and (frame_idx - last_event) > cooldown_frames:
-                conf = _confidence_from_score(motion_score)
+            # registra hit candidate
+            if motion_score > motion_score_threshold:
+                hit_frames.append((frame_idx, motion_score))
+
+            # pulizia hit vecchie dalla finestra
+            while hit_frames and (frame_idx - hit_frames[0][0] > confirm_window_frames):
+                hit_frames.popleft()
+
+            # conferma evento solo con coerenza temporale
+            confirmed = len(hit_frames) >= confirm_hits
+            if confirmed and (frame_idx - last_event) > cooldown_frames:
+                # usa la hit più forte nella finestra
+                best_frame, best_score = max(hit_frames, key=lambda x: x[1])
+                conf = _confidence_from_score(best_score)
                 events.append({
-                    "frame": frame_idx,
-                    "motion_score": int(motion_score),
+                    "frame": int(best_frame),
+                    "motion_score": int(best_score),
                     "confidence": conf
                 })
                 last_event = frame_idx
+                hit_frames.clear()
 
         prev_gray = gray
         frame_idx += 1
@@ -103,7 +125,9 @@ def detect_shot_like_events(
             "min_area": min_area,
             "threshold_binary": threshold_binary,
             "motion_score_threshold": motion_score_threshold,
-            "cooldown_frames": cooldown_frames
+            "cooldown_frames": cooldown_frames,
+            "confirm_hits": confirm_hits,
+            "confirm_window_frames": confirm_window_frames
         },
         "events": events[:200],
         "trusted_events": trusted[:200],

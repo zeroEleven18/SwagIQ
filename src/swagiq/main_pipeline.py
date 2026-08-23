@@ -58,6 +58,8 @@ def main():
         merge_window_sec=shot_cfg.get("merge_window_sec", 1.0),
         threshold_binary=shot_cfg.get("threshold_binary", 28),
         motion_score_threshold=shot_cfg.get("motion_score_threshold", 45000),
+        confirm_hits=shot_cfg.get("confirm_hits", 2),
+        confirm_window_frames=shot_cfg.get("confirm_window_frames", 6),
     )
 
     out = save_report(report, output_dir="output")
