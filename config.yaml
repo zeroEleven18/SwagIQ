@@ -1,0 +1,81 @@
+# SwagIQ Configuration File
+
+# Video Processing
+video:
+  # Source type: local_file, youtube, twitch, http_stream
+  source_type: local_file
+  local_path: "data/videos/sample.mp4"
+  resize_factor: 1.0  # 0.5 = 50% resolution (faster processing)
+  frame_sample_rate: 1  # Process every nth frame (1 = all frames)
+
+# Roboflow Configuration
+roboflow:
+  api_key: "NaIAgSwpIwHdovicjq2E"
+  project_name: "basketball-players"
+  model_version: 1
+  confidence_threshold: 0.5
+  timeout: 30
+
+# SAM 3 Tracker Configuration
+tracking:
+  # Model size: sam2_hiera_small (fastest), sam2_hiera_large (most accurate)
+  sam_model: "sam2_hiera_small"
+  min_track_confidence: 0.3
+  enable_tracking: true
+
+# Shot Detection Configuration
+shot_detection:
+  buffer_size: 15  # Frames to analyze for shot detection
+  min_velocity: 10  # Minimum ball velocity to consider a shot
+  hand_position_threshold: 0.7  # Confidence for hand pose detection
+  ball_trajectory_frames: 10  # Frames to track ball trajectory
+
+# Jersey OCR Configuration
+jersey_ocr:
+  use_paddle_ocr: true  # Use PaddleOCR (recommended) or Tesseract
+  ocr_confidence_threshold: 0.3
+  language: "en"
+
+# Court Mapper Configuration
+court:
+  court_width_feet: 50
+  court_length_feet: 94
+  three_point_distance_feet: 23.75
+  free_throw_line_distance_feet: 15
+
+# Performance Configuration
+performance:
+  batch_size: 1  # Number of frames to process in parallel
+  num_workers: 2  # Number of worker threads
+  use_gpu: true  # Use GPU acceleration if available
+  gpu_device: 0  # GPU device index (0 = first GPU)
+  max_memory_gb: 8  # Maximum GPU memory to use
+
+# Output Configuration
+output:
+  output_dir: "output"
+  generate_pdf: true
+  generate_json: true
+  generate_csv: true
+  save_processed_video: false  # Save video with annotations
+  video_output_format: "mp4"
+
+# Logging Configuration
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  file: "swagiq.log"
+  console_output: true
+
+# Database Configuration (optional for storing results)
+database:
+  enabled: false
+  type: "sqlite"  # sqlite, postgresql, mysql
+  path: "swagiq.db"
+  # connection_string: "postgresql://user:pass@localhost/swagiq"
+
+# Game Configuration
+game:
+  home_team: ""  # Will be set via API
+  away_team: ""  # Will be set via API
+  home_players: []  # Jersey numbers of known home players
+  away_players: []  # Jersey numbers of known away players
