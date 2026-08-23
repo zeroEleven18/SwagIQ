@@ -1,8 +1,0 @@
-{
-  "name": "SwagIQ- Basketball Video Analytics \u0026 Scouting",
-  "description": "Analisi video avanzata di basket ispirata a Roboflow \u0026 SAM con statistiche ufficiali di squadra e giocatori, shot chart interattiva, tracking tattico, generazione highlight ed export PDF.",
-  "requestFramePermissions": [],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
-}
