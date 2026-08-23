@@ -16,6 +16,7 @@ roboflow==1.1.26
 segment-anything==1.0
 torch==2.0.1
 torchvision==0.15.2
+mediapipe==0.10.14
 
 # OCR
 paddleocr==2.7.0.3
@@ -38,8 +39,9 @@ sqlalchemy==2.0.21
 psycopg2-binary==2.9.7
 
 # API
-flask==2.3.3
-flask-cors==4.0.0
+fastapi==0.110.0
+uvicorn==0.28.0
+python-multipart==0.0.9
 requests==2.31.0
 
 # Utilities
