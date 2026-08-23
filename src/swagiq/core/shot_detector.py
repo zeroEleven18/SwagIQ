@@ -1,6 +1,6 @@
 import cv2
 
-def detect_shot_like_events(video_path: str, min_area: int = 500, cooldown_frames: int = 20) -> dict:
+def detect_shot_like_events(video_path: str, min_area: int = 700, cooldown_frames: int = 35) -> dict:
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         raise RuntimeError(f"Impossibile aprire video: {video_path}")
@@ -20,7 +20,7 @@ def detect_shot_like_events(video_path: str, min_area: int = 500, cooldown_frame
 
         if prev_gray is not None:
             diff = cv2.absdiff(prev_gray, gray)
-            _, th = cv2.threshold(diff, 25, 255, cv2.THRESH_BINARY)
+            _, th = cv2.threshold(diff, 28, 255, cv2.THRESH_BINARY)
             th = cv2.dilate(th, None, iterations=2)
             contours, _ = cv2.findContours(th, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -30,8 +30,8 @@ def detect_shot_like_events(video_path: str, min_area: int = 500, cooldown_frame
                 if area >= min_area:
                     motion_score += area
 
-            # euristica semplice: picco movimento + cooldown
-            if motion_score > 25000 and (frame_idx - last_event) > cooldown_frames:
+            # soglia più alta + cooldown più lungo => meno falsi positivi
+            if motion_score > 45000 and (frame_idx - last_event) > cooldown_frames:
                 events.append({
                     "frame": frame_idx,
                     "motion_score": int(motion_score)
@@ -49,5 +49,5 @@ def detect_shot_like_events(video_path: str, min_area: int = 500, cooldown_frame
 
     return {
         "estimated_shot_events": len(events),
-        "events": events[:200]  # cap sicurezza
+        "events": events[:200]
     }
