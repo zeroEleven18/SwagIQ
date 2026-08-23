@@ -7,7 +7,33 @@ def _confidence_from_score(score: float) -> str:
         return "medium"
     return "low"
 
-def detect_shot_like_events(video_path: str, min_area: int = 700, cooldown_frames: int = 35) -> dict:
+def _merge_events_by_time(events, merge_window_sec=1.0):
+    if not events:
+        return []
+
+    merged = []
+    current = dict(events[0])
+    current["merged_count"] = 1
+
+    for e in events[1:]:
+        dt = (e["time_sec"] - current["time_sec"]) if (e.get("time_sec") is not None and current.get("time_sec") is not None) else 999
+        if dt <= merge_window_sec:
+            # stesso burst: tieni evento più forte
+            current["merged_count"] += 1
+            if e["motion_score"] > current["motion_score"]:
+                current["frame"] = e["frame"]
+                current["time_sec"] = e["time_sec"]
+                current["motion_score"] = e["motion_score"]
+                current["confidence"] = e["confidence"]
+        else:
+            merged.append(current)
+            current = dict(e)
+            current["merged_count"] = 1
+
+    merged.append(current)
+    return merged
+
+def detect_shot_like_events(video_path: str, min_area: int = 700, cooldown_frames: int = 35, merge_window_sec: float = 1.0) -> dict:
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         raise RuntimeError(f"Impossibile aprire video: {video_path}")
@@ -58,12 +84,16 @@ def detect_shot_like_events(video_path: str, min_area: int = 700, cooldown_frame
         conf_count[e["confidence"]] += 1
 
     trusted = [e for e in events if e["confidence"] in ("medium", "high")]
+    merged_trusted = _merge_events_by_time(trusted, merge_window_sec=merge_window_sec)
 
     return {
         "estimated_shot_events": len(events),
         "confidence_breakdown": conf_count,
         "trusted_events_count": len(trusted),
         "trusted_ratio": round((len(trusted) / len(events)), 3) if events else 0.0,
+        "trusted_events_merged_count": len(merged_trusted),
+        "merge_window_sec": merge_window_sec,
         "events": events[:200],
-        "trusted_events": trusted[:200]
+        "trusted_events": trusted[:200],
+        "trusted_events_merged": merged_trusted[:200]
     }
