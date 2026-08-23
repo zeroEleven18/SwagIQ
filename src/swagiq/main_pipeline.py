@@ -58,7 +58,7 @@ class SwagIQPipeline:
             config_path: Path to configuration file
         """
         self.base_dir = Path(__file__).resolve().parent
-        self.config = config if config is not None else self._load_config(config_path or "config/config.yaml")
+        self.config = config if config is not None else self._load_config(config_path or "config/config/config.yaml")
         self.setup_components()
         
         logger.info("SwagIQ Pipeline initialized")
@@ -420,7 +420,7 @@ def main():
     
     parser = argparse.ArgumentParser(description='SwagIQ Basketball Video Analytics')
     parser.add_argument('video', help='Path or URL to video file')
-    parser.add_argument('--config', default='config/config.yaml', help='Configuration file path')
+    parser.add_argument('--config', default='config/config/config.yaml', help='Configuration file path')
     parser.add_argument('--source-type', default='local_file', 
                        choices=['local_file', 'youtube', 'twitch', 'http_stream'],
                        help='Video source type')
