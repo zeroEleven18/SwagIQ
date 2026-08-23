@@ -1,155 +1,81 @@
 # SwagIQ Configuration File
-# Edit this file to customize the analytics pipeline behavior
 
+# Video Processing
 video:
-  # Video source type: local_file, youtube, twitch, http_stream
+  # Source type: local_file, youtube, twitch, http_stream
   source_type: local_file
-  
-  # Path to local video file
-  local_path: "data/videos/clip1.mp4"
-  
-  # YouTube video URL (if source_type is youtube)
-  youtube_url: ""
-  
-  # Twitch stream URL (if source_type is twitch)
-  twitch_url: ""
-  
-  # Frame sampling rate (process every N frames)
-  frame_sample_rate: 1
-  
-  # Maximum frames to process (0 = all)
-  max_frames: 0
-  
-  # Video resize factor (0.5 = half size, faster processing)
-  resize_factor: 1.0
+  local_path: "data/videos/sample.mp4"
+  resize_factor: 1.0  # 0.5 = 50% resolution (faster processing)
+  frame_sample_rate: 1  # Process every nth frame (1 = all frames)
 
+# Roboflow Configuration
 roboflow:
-  # Roboflow API configuration
-  api_key: "YOUR_ROBOFLOW_API_KEY"
-  
-  # Project names for different detection tasks
-  projects:
-    players: "basketball-players"
-    ball: "basketball-ball"
-    basket: "basketball-basket"
-  
-  # Model versions
-  versions:
-    players: 1
-    ball: 1
-    basket: 1
-  
-  # Detection confidence threshold
+  api_key: "NaIAgSwpIwHdovicjq2E"
+  project_name: "basketball-players"
+  model_version: 1
   confidence_threshold: 0.5
-  
-  # Overlap threshold for NMS
-  overlap_threshold: 0.3
+  timeout: 30
 
+# SAM 3 Tracker Configuration
 tracking:
-  # SAM 3 Model configuration
-  sam_model: "sam2_hiera_small"  # small, large, mobile_tiny
-  
-  # Tracking confidence threshold
+  # Model size: sam2_hiera_small (fastest), sam2_hiera_large (most accurate)
+  sam_model: "sam2_hiera_small"
   min_track_confidence: 0.3
-  
-  # Maximum distance for track association (pixels)
-  max_track_distance: 100
-  
-  # Track TTL (time to live in frames)
-  track_ttl: 30
+  enable_tracking: true
 
-jersey_ocr:
-  # OCR Configuration
-  use_paddle_ocr: true  # Use PaddleOCR instead of Tesseract
-  
-  # Minimum confidence for jersey recognition
-  min_confidence: 0.6
-  
-  # Use custom fine-tuned model
-  use_custom_model: false
-  custom_model_path: "models/jersey_ocr_custom.pt"
-
+# Shot Detection Configuration
 shot_detection:
-  # Shot detection parameters
-  buffer_size: 15  # Frames to analyze for shooting motion
-  
-  # Hand pose confidence threshold
-  hand_pose_min_confidence: 0.5
-  
-  # Shooting motion thresholds
-  min_upward_motion_ratio: 0.4
-  min_arm_extension: 20  # pixels
-  min_velocity: 10  # pixels/frame
-  
-  # Ball trajectory parameters
-  min_trajectory_points: 3
-  gravity: 32.174  # ft/s^2
-  basket_diameter: 1.5  # feet
+  buffer_size: 15  # Frames to analyze for shot detection
+  min_velocity: 10  # Minimum ball velocity to consider a shot
+  hand_position_threshold: 0.7  # Confidence for hand pose detection
+  ball_trajectory_frames: 10  # Frames to track ball trajectory
 
-statistics:
-  # NBA Court dimensions
-  court_length: 94  # feet
-  court_width: 50  # feet
-  three_point_distance: 23.75  # feet
-  basket_height: 10  # feet
-  
-  # Shot type classification
-  shot_types:
-    layup_max_distance: 3  # feet
-    two_point_max_distance: 23.75  # feet
+# Jersey OCR Configuration
+jersey_ocr:
+  use_paddle_ocr: true  # Use PaddleOCR (recommended) or Tesseract
+  ocr_confidence_threshold: 0.3
+  language: "en"
 
-output:
-  # Output directory
-  output_dir: "output"
-  
-  # Report generation
-  reports:
-    generate_pdf: true
-    generate_json: true
-    generate_csv: true
-  
-  # Video annotations
-  annotate_video: true
-  annotation_output: "output/annotated_video.mp4"
-  
-  # Statistics export
-  statistics_format: "json"  # json, csv, both
+# Court Mapper Configuration
+court:
+  court_width_feet: 50
+  court_length_feet: 94
+  three_point_distance_feet: 23.75
+  free_throw_line_distance_feet: 15
 
-game:
-  # Game information (can be overridden at runtime)
-  home_team: "Home"
-  away_team: "Away"
-  date: ""
-  location: ""
-  
-  # Quarters configuration
-  quarters: 4
-  quarter_duration: 600  # seconds
-
+# Performance Configuration
 performance:
-  # GPU acceleration
-  use_gpu: true
-  gpu_device: 0  # 0 for first GPU
-  
-  # Batch processing
-  batch_size: 1
-  
-  # Threading
-  num_threads: 4
-  
-  # Logging level: DEBUG, INFO, WARNING, ERROR
-  log_level: "INFO"
+  batch_size: 1  # Number of frames to process in parallel
+  num_workers: 2  # Number of worker threads
+  use_gpu: true  # Use GPU acceleration if available
+  gpu_device: 0  # GPU device index (0 = first GPU)
+  max_memory_gb: 8  # Maximum GPU memory to use
 
-debug:
-  # Debug mode
+# Output Configuration
+output:
+  output_dir: "output"
+  generate_pdf: true
+  generate_json: true
+  generate_csv: true
+  save_processed_video: false  # Save video with annotations
+  video_output_format: "mp4"
+
+# Logging Configuration
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  file: "swagiq.log"
+  console_output: true
+
+# Database Configuration (optional for storing results)
+database:
   enabled: false
-  
-  # Save intermediate frames
-  save_debug_frames: false
-  debug_output_dir: "debug_output"
-  
-  # Verbose logging
-  verbose: false
-  
-  # Visualize detections
-  visualize_detections: true
+  type: "sqlite"  # sqlite, postgresql, mysql
+  path: "swagiq.db"
+  # connection_string: "postgresql://user:pass@localhost/swagiq"
+
+# Game Configuration
+game:
+  home_team: ""  # Will be set via API
+  away_team: ""  # Will be set via API
+  home_players: []  # Jersey numbers of known home players
+  away_players: []  # Jersey numbers of known away players
