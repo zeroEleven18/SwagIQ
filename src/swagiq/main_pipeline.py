@@ -13,7 +13,7 @@ def load_config(path: str):
     with p.open("r", encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
 
-def resolve_preset(cfg: dict, preset_name: str | None):
+def resolve_preset(cfg: dict, preset_name=None):
     presets = cfg.get("presets", {})
     default_preset = cfg.get("default_preset")
 
