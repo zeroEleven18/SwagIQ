@@ -57,8 +57,13 @@ def detect_shot_like_events(video_path: str, min_area: int = 700, cooldown_frame
         e["time_sec"] = round(e["frame"] / fps, 2) if fps > 0 else None
         conf_count[e["confidence"]] += 1
 
+    trusted = [e for e in events if e["confidence"] in ("medium", "high")]
+
     return {
         "estimated_shot_events": len(events),
         "confidence_breakdown": conf_count,
-        "events": events[:200]
+        "trusted_events_count": len(trusted),
+        "trusted_ratio": round((len(trusted) / len(events)), 3) if events else 0.0,
+        "events": events[:200],
+        "trusted_events": trusted[:200]
     }
