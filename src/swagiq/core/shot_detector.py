@@ -18,7 +18,6 @@ def _merge_events_by_time(events, merge_window_sec=1.0):
     for e in events[1:]:
         dt = (e["time_sec"] - current["time_sec"]) if (e.get("time_sec") is not None and current.get("time_sec") is not None) else 999
         if dt <= merge_window_sec:
-            # stesso burst: tieni evento più forte
             current["merged_count"] += 1
             if e["motion_score"] > current["motion_score"]:
                 current["frame"] = e["frame"]
@@ -33,7 +32,14 @@ def _merge_events_by_time(events, merge_window_sec=1.0):
     merged.append(current)
     return merged
 
-def detect_shot_like_events(video_path: str, min_area: int = 700, cooldown_frames: int = 35, merge_window_sec: float = 1.0) -> dict:
+def detect_shot_like_events(
+    video_path: str,
+    min_area: int = 700,
+    cooldown_frames: int = 35,
+    merge_window_sec: float = 1.0,
+    threshold_binary: int = 28,
+    motion_score_threshold: float = 45000,
+) -> dict:
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         raise RuntimeError(f"Impossibile aprire video: {video_path}")
@@ -53,7 +59,7 @@ def detect_shot_like_events(video_path: str, min_area: int = 700, cooldown_frame
 
         if prev_gray is not None:
             diff = cv2.absdiff(prev_gray, gray)
-            _, th = cv2.threshold(diff, 28, 255, cv2.THRESH_BINARY)
+            _, th = cv2.threshold(diff, threshold_binary, 255, cv2.THRESH_BINARY)
             th = cv2.dilate(th, None, iterations=2)
             contours, _ = cv2.findContours(th, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -63,7 +69,7 @@ def detect_shot_like_events(video_path: str, min_area: int = 700, cooldown_frame
                 if area >= min_area:
                     motion_score += area
 
-            if motion_score > 45000 and (frame_idx - last_event) > cooldown_frames:
+            if motion_score > motion_score_threshold and (frame_idx - last_event) > cooldown_frames:
                 conf = _confidence_from_score(motion_score)
                 events.append({
                     "frame": frame_idx,
@@ -93,6 +99,12 @@ def detect_shot_like_events(video_path: str, min_area: int = 700, cooldown_frame
         "trusted_ratio": round((len(trusted) / len(events)), 3) if events else 0.0,
         "trusted_events_merged_count": len(merged_trusted),
         "merge_window_sec": merge_window_sec,
+        "parameters": {
+            "min_area": min_area,
+            "threshold_binary": threshold_binary,
+            "motion_score_threshold": motion_score_threshold,
+            "cooldown_frames": cooldown_frames
+        },
         "events": events[:200],
         "trusted_events": trusted[:200],
         "trusted_events_merged": merged_trusted[:200]
