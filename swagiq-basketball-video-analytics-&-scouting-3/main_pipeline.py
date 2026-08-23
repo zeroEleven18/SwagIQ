@@ -3,13 +3,22 @@ SwagIQ Main Pipeline
 Orchestrates the entire video analysis workflow
 """
 
+import json
 import logging
 import yaml
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 import cv2
 
-from core.video_processor import VideoLoader, RoboflowDetector, SAMTracker, CourtMapper, VideoProcessor
+from core.video_processor import (
+    VideoLoader,
+    RoboflowDetector,
+    SAMTracker,
+    CourtMapper,
+    VideoProcessor,
+    DetectionSource,
+)
 from core.jersey_ocr import JerseyNumberOCR, TeamClassifier, PlayerIdentifier
 from core.statistics_extractor import StatisticsExtractor, Shot, ShotOutcome, ShotType
 from export.report_generator import ReportGenerator
@@ -22,17 +31,34 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class PipelineConfig:
+    """Configuration object used by the dashboard and programmatic API"""
+    roboflow_api_key: str = ""
+    roboflow_project: str = "basketball-players"
+    roboflow_version: int = 1
+    video_source: str = ""
+    source_type: DetectionSource = DetectionSource.LOCAL_FILE
+    output_dir: Path = Path("output")
+    frame_sample_rate: int = 1
+    resize_factor: float = 1.0
+    use_paddle_ocr: bool = True
+    language: str = "en"
+    sam_model: str = "sam2_hiera_small"
+
+
 class SwagIQPipeline:
     """Main pipeline for SwagIQ video analysis"""
     
-    def __init__(self, config_path: str = "config.yaml"):
+    def __init__(self, config_path: Optional[str] = None, config: Optional[Dict] = None):
         """
         Initialize the SwagIQ pipeline
         
         Args:
             config_path: Path to configuration file
         """
-        self.config = self._load_config(config_path)
+        self.base_dir = Path(__file__).resolve().parent
+        self.config = config if config is not None else self._load_config(config_path or "config.yaml")
         self.setup_components()
         
         logger.info("SwagIQ Pipeline initialized")
@@ -40,9 +66,13 @@ class SwagIQPipeline:
     def _load_config(self, config_path: str) -> Dict:
         """Load configuration from YAML file"""
         try:
-            with open(config_path, 'r') as f:
+            config_file = Path(config_path)
+            if not config_file.is_absolute():
+                config_file = self.base_dir / config_file
+
+            with open(config_file, 'r') as f:
                 config = yaml.safe_load(f)
-            logger.info(f"Configuration loaded from {config_path}")
+            logger.info(f"Configuration loaded from {config_file}")
             return config
         except FileNotFoundError:
             logger.error(f"Configuration file not found: {config_path}")
@@ -247,7 +277,7 @@ class SwagIQPipeline:
         except Exception as e:
             logger.error(f"Error generating reports: {str(e)}")
             return {}
-    
+
     def run(self, video_source: str, source_type: str = "local_file") -> Dict:
         """
         Run the complete pipeline
@@ -263,13 +293,11 @@ class SwagIQPipeline:
         logger.info("SwagIQ Pipeline Started")
         logger.info("=" * 50)
         
-        # Process video
         result = self.process_video(video_source, source_type)
         
         if not result.get('success', False):
             return result
         
-        # Generate reports
         game_summary_dict = result['game_summary'].to_dict()
         reports = self.generate_reports(game_summary_dict)
         
@@ -279,6 +307,110 @@ class SwagIQPipeline:
         logger.info("SwagIQ Pipeline Completed")
         logger.info("=" * 50)
         
+        return result
+
+
+class BasketballAnalyticsPipeline:
+    """Compatibility pipeline used by the dashboard and API"""
+
+    def __init__(self, config: PipelineConfig):
+        self.pipeline_config = config
+        self.output_dir = Path(config.output_dir)
+        self.pipeline = SwagIQPipeline(config=self._build_runtime_config())
+
+    def _build_runtime_config(self, home_team: str = "Home", away_team: str = "Away") -> Dict:
+        return {
+            "video": {
+                "source_type": self.pipeline_config.source_type.value,
+                "local_path": self.pipeline_config.video_source,
+                "resize_factor": self.pipeline_config.resize_factor,
+                "frame_sample_rate": self.pipeline_config.frame_sample_rate,
+            },
+            "roboflow": {
+                "api_key": self.pipeline_config.roboflow_api_key,
+                "project_name": self.pipeline_config.roboflow_project,
+                "model_version": self.pipeline_config.roboflow_version,
+            },
+            "tracking": {
+                "sam_model": self.pipeline_config.sam_model,
+            },
+            "jersey_ocr": {
+                "use_paddle_ocr": self.pipeline_config.use_paddle_ocr,
+                "language": self.pipeline_config.language,
+            },
+            "game": {
+                "home_team": home_team,
+                "away_team": away_team,
+            },
+            "output": {
+                "output_dir": str(self.output_dir),
+            },
+        }
+
+    def _write_json(self, path: Path, data: Dict):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w") as handle:
+            json.dump(data, handle, indent=2)
+
+    def _write_dashboard_outputs(self, result: Dict) -> Dict[str, str]:
+        summary = result.get("game_summary")
+        summary_dict = summary.to_dict() if hasattr(summary, "to_dict") else dict(summary or {})
+        statistics = {
+            "game_summary": summary_dict,
+            "home_team_stats": summary_dict.get("home_team_stats", {}),
+            "away_team_stats": summary_dict.get("away_team_stats", {}),
+            "top_performers": result.get("top_performers", []),
+            "shot_chart": result.get("shot_chart", []),
+            "shooting_efficiency": result.get("shooting_efficiency", {}),
+        }
+
+        summary_path = self.output_dir / "summary.json"
+        statistics_path = self.output_dir / "statistics.json"
+        self._write_json(summary_path, summary_dict)
+        self._write_json(statistics_path, statistics)
+
+        outputs = {
+            "summary": str(summary_path),
+            "statistics": str(statistics_path),
+        }
+
+        reports = result.get("reports", {})
+        if reports.get("pdf_report"):
+            outputs["pdf"] = str(reports["pdf_report"])
+
+        return outputs
+
+    def run_complete_pipeline(
+        self,
+        home_team: str,
+        away_team: str,
+        home_players: Optional[List[Dict]] = None,
+        away_players: Optional[List[Dict]] = None,
+        progress_callback=None,
+    ) -> Dict:
+        del home_players, away_players
+
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.pipeline = SwagIQPipeline(config=self._build_runtime_config(home_team, away_team))
+
+        if progress_callback:
+            progress_callback({"progress": 5, "stage": "initializing"})
+
+        source_type = self.pipeline_config.source_type
+        source_value = source_type.value if isinstance(source_type, DetectionSource) else str(source_type)
+        result = self.pipeline.run(self.pipeline_config.video_source, source_value)
+
+        if not result.get("success", False):
+            if progress_callback:
+                progress_callback({"progress": 100, "stage": "failed"})
+            return result
+
+        output_files = self._write_dashboard_outputs(result)
+        result["output_files"] = output_files
+
+        if progress_callback:
+            progress_callback({"progress": 100, "stage": "completed"})
+
         return result
 
 

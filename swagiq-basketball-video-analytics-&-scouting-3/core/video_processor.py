@@ -336,6 +336,8 @@ class CourtMapper:
         """
         self.court_width = court_width
         self.court_length = court_length
+        self.keypoints_frame: Dict[str, Tuple[int, int]] = {}
+        self.homography_matrix: Optional[np.ndarray] = None
         
         # Coordinate del canestro (normalizzate 0-1)
         self.basket_x = 0.5
@@ -346,6 +348,59 @@ class CourtMapper:
         self.free_throw_line_distance = 15
         
         logger.info(f"Court mapper initialized: {court_width}x{court_length} feet")
+
+    def set_keypoint(self, keypoint_name: str, frame_position: Tuple[int, int]):
+        """Registra un keypoint del campo nel frame video"""
+        self.keypoints_frame[keypoint_name] = frame_position
+
+    def compute_homography(self):
+        """Calcola la matrice di omografia dai keypoint registrati"""
+        standard_keypoints = {
+            "top_left": (0.0, 0.0),
+            "top_right": (self.court_width, 0.0),
+            "bottom_left": (0.0, self.court_length),
+            "bottom_right": (self.court_width, self.court_length),
+            "center": (self.court_width / 2, self.court_length / 2),
+        }
+
+        if len(self.keypoints_frame) < 4:
+            raise ValueError("At least 4 keypoints are required to compute homography")
+
+        frame_points = []
+        court_points = []
+
+        for key, frame_position in self.keypoints_frame.items():
+            if key in standard_keypoints:
+                frame_points.append(frame_position)
+                court_points.append(standard_keypoints[key])
+
+        if len(frame_points) < 4:
+            raise ValueError("Not enough valid keypoints to compute homography")
+
+        self.homography_matrix, _ = cv2.findHomography(
+            np.array(frame_points, dtype=np.float32),
+            np.array(court_points, dtype=np.float32),
+        )
+
+    def frame_to_court(self, frame_position: Tuple[int, int]) -> Tuple[float, float]:
+        """Converte una posizione nel frame in coordinate del campo"""
+        if self.homography_matrix is None:
+            return (
+                frame_position[0] / 1920.0 * self.court_width,
+                frame_position[1] / 1080.0 * self.court_length,
+            )
+
+        point = np.array([[[frame_position[0], frame_position[1]]]], dtype=np.float32)
+        court_position = cv2.perspectiveTransform(point, self.homography_matrix)
+        return tuple(court_position[0][0])
+
+    def frame_to_court_percentage(self, frame_position: Tuple[int, int]) -> Tuple[float, float]:
+        """Converte una posizione nel frame in coordinate percentuali del campo"""
+        court_x, court_y = self.frame_to_court(frame_position)
+        return (
+            max(0.0, min(100.0, (court_x / self.court_width) * 100.0)),
+            max(0.0, min(100.0, (court_y / self.court_length) * 100.0)),
+        )
     
     def get_distance_from_basket(self, position: Tuple[float, float]) -> float:
         """

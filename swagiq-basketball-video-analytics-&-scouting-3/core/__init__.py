@@ -19,7 +19,7 @@ from .jersey_ocr import (
 
 from .shot_detector import (
     ShotDetector,
-    ShotDetection
+    ShotDetectionResult
 )
 
 from .statistics_extractor import (
@@ -45,7 +45,7 @@ __all__ = [
     'PlayerIdentifier',
     'PlayerIdentification',
     'ShotDetector',
-    'ShotDetection',
+    'ShotDetectionResult',
     'StatisticsExtractor',
     'Shot',
     'PlayerStats',
