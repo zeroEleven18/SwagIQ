@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 import cv2
 
-from core.video_processor import (
+from swagiq.core.video_processor import (
     VideoLoader,
     RoboflowDetector,
     SAMTracker,
@@ -19,9 +19,9 @@ from core.video_processor import (
     VideoProcessor,
     DetectionSource,
 )
-from core.jersey_ocr import JerseyNumberOCR, TeamClassifier, PlayerIdentifier
-from core.statistics_extractor import StatisticsExtractor, Shot, ShotOutcome, ShotType
-from export.report_generator import ReportGenerator
+from swagiq.core.jersey_ocr import JerseyNumberOCR, TeamClassifier, PlayerIdentifier
+from swagiq.core.statistics_extractor import StatisticsExtractor, Shot, ShotOutcome, ShotType
+from swagiq.export.report_generator import ReportGenerator
 
 # Configure logging
 logging.basicConfig(
@@ -58,7 +58,7 @@ class SwagIQPipeline:
             config_path: Path to configuration file
         """
         self.base_dir = Path(__file__).resolve().parent
-        self.config = config if config is not None else self._load_config(config_path or "config.yaml")
+        self.config = config if config is not None else self._load_config(config_path or "config/config.yaml")
         self.setup_components()
         
         logger.info("SwagIQ Pipeline initialized")
@@ -420,7 +420,7 @@ def main():
     
     parser = argparse.ArgumentParser(description='SwagIQ Basketball Video Analytics')
     parser.add_argument('video', help='Path or URL to video file')
-    parser.add_argument('--config', default='config.yaml', help='Configuration file path')
+    parser.add_argument('--config', default='config/config.yaml', help='Configuration file path')
     parser.add_argument('--source-type', default='local_file', 
                        choices=['local_file', 'youtube', 'twitch', 'http_stream'],
                        help='Video source type')
